@@ -12,8 +12,8 @@ app.use(cors());
 
 const SECRET_KEY = 'my_super_secret_123!';
 
-// Connect to MongoDB
-mongoose.connect('mongodb://127.0.0.1:27017/auctionDB');
+// Connect to render
+render.connect('https://aution-web.onrender.com');
 
 // User Schema
 const userSchema = new mongoose.Schema({
