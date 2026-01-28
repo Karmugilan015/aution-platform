@@ -24,7 +24,7 @@ function Signup() {
 
     try 
     {
-      const res = await axios.post('http://localhost:5001/signup', {
+      const res = await axios.post('https://online-aution-platform-api.onrender.com/signup', {
         username,
         password, 
       });
