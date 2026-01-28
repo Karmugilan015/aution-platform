@@ -31,7 +31,7 @@ function AuctionItem() {
     }
 
     try {
-      const res = await axios.post(`http://localhost:5001/bid/${id}`, { bid, username });
+      const res = await axios.post(`https://online-aution-platform-api.onrender.com/bid/${id}`, { bid, username });
       setMessage(res.data.message);
       if (res.data.winner) {
         setMessage(`Auction closed. Winner: ${res.data.winner}`);
