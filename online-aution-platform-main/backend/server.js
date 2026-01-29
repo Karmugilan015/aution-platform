@@ -19,7 +19,7 @@ const SECRET_KEY = process.env.JWT_SECRET || 'dev_secret_key';
 // MongoDB connection
 const MONGO_URI =
   process.env.MONGO_URI ||
-  'mongodb+srv://karmugilan:<karmugilan>@cluster0.i1155u3.mongodb.net/?appName=Cluster0';
+  'mongodb+srv://karmugilan:Karmugilan2004>@cluster0.i1155u3.mongodb.net/?appName=Cluster0';
 
 mongoose
   .connect(MONGO_URI)
