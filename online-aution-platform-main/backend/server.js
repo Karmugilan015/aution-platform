@@ -285,4 +285,187 @@ process.on('SIGTERM', () => {
   console.log('SIGTERM signal received: closing HTTP server');
   mongoose.connection.close();
   process.exit(0);
+});    });  
+    await newUser.save();
+
+    res.status(201).json({ message: 'User registered successfully' });
+
+  } catch (error) {
+    console.error('Signup Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// Signin Route - Fixed password comparison
+app.post('/signin', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    // Compare hashed password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign({ 
+      userId: user._id, 
+      username: user.username 
+    }, SECRET_KEY, { 
+      expiresIn: '1h' 
+    });
+    
+    res.json({ 
+      message: 'Signin successful', 
+      token,
+      user: {
+        id: user._id,
+        username: user.username
+      }
+    });
+
+  } catch (error) {
+    console.error('Signin Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// Create Auction Item (Protected)
+app.post('/auction', authenticate, async (req, res) => {
+  try {
+    const { itemName, description, startingBid, closingTime } = req.body;
+
+    if (!itemName || !description || !startingBid || !closingTime) {  
+      return res.status(400).json({ message: 'All fields are required' });  
+    }  
+
+    const newItem = new AuctionItem({  
+      itemName,  
+      description,  
+      currentBid: startingBid,
+      startingBid: startingBid, // Store starting bid separately
+      highestBidder: '',  
+      closingTime,  
+    });  
+
+    await newItem.save();  
+    res.status(201).json({ 
+      message: 'Auction item created', 
+      item: newItem 
+    });
+
+  } catch (error) {
+    console.error('Auction Post Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// Get all auction items with optional filtering
+app.get('/auctions', async (req, res) => {
+  try {
+    const { status } = req.query;
+    let query = {};
+    
+    if (status === 'active') {
+      query = { isClosed: false, closingTime: { $gt: new Date() } };
+    } else if (status === 'closed') {
+      query = { $or: [{ isClosed: true }, { closingTime: { $lt: new Date() } }] };
+    }
+    
+    const auctions = await AuctionItem.find(query).sort({ createdAt: -1 });
+    res.json(auctions);
+  } catch (error) {
+    console.error('Fetching Auctions Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// Get a single auction item by ID
+app.get('/auctions/:id', async (req, res) => {
+  try {
+    const auctionItem = await AuctionItem.findById(req.params.id);
+    if (!auctionItem) {
+      return res.status(404).json({ message: 'Auction not found' });
+    }
+
+    // Check if auction should be closed
+    if (!auctionItem.isClosed && new Date() > new Date(auctionItem.closingTime)) {
+      auctionItem.isClosed = true;
+      await auctionItem.save();
+    }
+
+    res.json(auctionItem);
+
+  } catch (error) {
+    console.error('Fetching Auction Item Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// Bidding on an item (Protected)
+app.post('/bid/:id', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { bid } = req.body;
+    const item = await AuctionItem.findById(id);
+
+    if (!item) return res.status(404).json({ message: 'Auction item not found' });  
+    
+    // Check if auction is closed
+    if (item.isClosed) {
+      return res.status(400).json({ 
+        message: 'Auction is closed', 
+        winner: item.highestBidder 
+      });  
+    }
+    
+    // Check if auction time has passed
+    if (new Date() > new Date(item.closingTime)) {  
+      item.isClosed = true;  
+      await item.save();  
+      return res.status(400).json({ 
+        message: 'Auction closed', 
+        winner: item.highestBidder 
+      });  
+    }  
+
+    // Validate bid amount
+    if (bid <= item.currentBid) {  
+      return res.status(400).json({ 
+        message: 'Bid must be higher than current bid',
+        currentBid: item.currentBid
+      });  
+    }  
+
+    // Update the bid
+    item.currentBid = bid;  
+    item.highestBidder = req.user.username;  
+    await item.save();  
+    
+    res.json({ 
+      message: 'Bid successful', 
+      item,
+      yourBid: bid
+    });
+
+  } catch (error) {
+    console.error('Bidding Error:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// Start the server
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM signal received: closing HTTP server');
+  mongoose.connection.close();
+  process.exit(0);
 });
